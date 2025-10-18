@@ -4,7 +4,7 @@ An automated booking bot for sessions on SignUpGenius.
 
 ## Overview
 
-This Python-based automation tool helps members of the Edinburgh University Table Tennis Club automatically sign up for available practice sessions. The bot uses Selenium WebDriver to navigate the SignUpGenius booking page, find available slots, and complete the registration process.
+This Python-based automation tool helps automatically sign up for available sessions. The bot uses Selenium WebDriver to navigate the SignUpGenius booking page, find available slots, and complete the registration process.
 
 ## Features
 
