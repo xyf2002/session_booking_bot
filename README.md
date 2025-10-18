@@ -1,6 +1,6 @@
-# EUTTC Table Tennis Sign-Up Bot
+# Sign-Up Bot
 
-An automated booking bot for Edinburgh University Table Tennis Club (EUTTC) sessions on SignUpGenius.
+An automated booking bot for sessions on SignUpGenius.
 
 ## Overview
 
@@ -140,54 +140,6 @@ The bot uses three approaches to find available buttons:
 - Human-like delays between actions
 - Disabled automation flags
 
-## Troubleshooting
-
-### Common Issues
-
-**1. No Available Buttons Found**
-- **Cause**: All sessions are full or already booked
-- **Solution**: Check the website manually or wait for new sessions
-
-**2. ChromeDriver Issues**
-- **Cause**: Chrome browser version mismatch
-- **Solution**: Update Chrome browser; webdriver-manager handles driver updates automatically
-
-**3. reCAPTCHA Appears**
-- **Cause**: SignUpGenius requires human verification
-- **Solution**: Complete the CAPTCHA manually within 30 seconds (bot will beep to alert you)
-
-**4. Form Submission Fails**
-- **Cause**: Network issues or page changes
-- **Solution**: Check logs and screenshots; verify website is accessible
-
-**5. Email Format Error**
-- **Cause**: Invalid email format (note: there's a "=" prefix in the config)
-- **Solution**: Remove the "=" from EMAIL variable: `EMAIL = "sunweibo221504@ed.ac.uk"`
-
-### Debug Mode
-
-Check these files when issues occur:
-1. `signup_bot.log` - Detailed execution trace
-2. `error_*.png` - Visual state when error occurred
-3. `debug_page.html` - Page source for inspection
-
-## Important Notes
-
-
-### Best Practices
-
-- Test with `HEADLESS = False` first to see what's happening
-- Check logs after each run
-- Don't run the bot too frequently (respect server resources)
-- Verify bookings manually on the website
-- Keep Chrome browser updated
-
-### Limitations
-
-- Cannot handle fully booked sessions (will report no available buttons)
-- Requires manual intervention for reCAPTCHA
-- Cannot select specific time slots (books first available)
-- Works only with the specific SignUpGenius page structure
 
 ## Code Structure
 
@@ -208,29 +160,7 @@ TableTennisSignUpBot.py
 └── main()                                  # Entry point
 ```
 
-## Privacy & Security
-
-- Personal information is only sent to SignUpGenius
-- No data is collected or stored by this bot
-- Credentials are stored locally in the script
-- All communication uses HTTPS
-
 ## License
 
 This is a personal automation tool. Use at your own discretion.
-
-## Contributing
-
-This appears to be a personal project. If you want to improve it:
-
-1. Test thoroughly before running on production
-2. Add error handling for edge cases
-3. Consider adding session time preferences
-4. Implement retry logic for transient failures
-
-## Target Website
-
-- **URL**: https://www.signupgenius.com/go/10c0d4faba62ca2f9c25-euttc
-- **Organization**: Edinburgh University Table Tennis Club
-- **Platform**: SignUpGenius
 
