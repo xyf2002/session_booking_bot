@@ -23,7 +23,7 @@ logging.basicConfig(
 
 
 class EUTTCSignUpBot:
-    """爱丁堡大学乒乓球俱乐部自动预约机器人"""
+    """爱丁堡大学乒乓球俱乐部自动预约机器人 - 简化版"""
 
     def __init__(self, headless=False):
         self.driver = None
@@ -77,7 +77,7 @@ class EUTTCSignUpBot:
         # 配置等待时间
         self.wait = WebDriverWait(self.driver, 20)
 
-        logging.info("浏览器初始化完成")
+        logging.info("✅ 浏览器初始化完成")
 
     def navigate_to_page(self):
         """打开预约页面"""
@@ -85,7 +85,7 @@ class EUTTCSignUpBot:
             logging.info(f"正在打开页面: {self.base_url}")
             self.driver.get(self.base_url)
 
-            # 等待AngularJS加载完成
+            # 等待页面加载
             time.sleep(3)
 
             # 等待表格出现
@@ -141,113 +141,197 @@ class EUTTCSignUpBot:
         except Exception as e:
             logging.warning(f"处理隐私弹窗时出错: {e}")
             self.driver.switch_to.default_content()
-            return True  # 即使失败也继续执行
+            return True
 
-    def find_tuesday_team_coaching_button(self):
+    def find_any_available_signup_button(self):
         """
-        查找Tuesday 8:30pm-10:00pm Team Coaching的Sign Up按钮
-        这是最关键的步骤！
+        查找任何可用的Sign Up按钮（精确匹配）
+        修复：按钮是<button>标签，不是<a>标签，文本有空格
         """
         try:
-            logging.info("正在查找Tuesday Team Coaching的Sign Up按钮...")
+            logging.info("正在查找可用的Sign Up按钮...")
 
             # 滚动到表格区域
             self.driver.execute_script("window.scrollTo(0, 600);")
             time.sleep(2)
 
-            # 策略1: 先找到包含Tuesday和Team Coaching的行
-            tuesday_rows = self.driver.find_elements(
+            # 额外等待AngularJS渲染完成
+            logging.info("等待AngularJS渲染完成...")
+            time.sleep(3)
+
+            # ===== 方法1: 精确匹配<button>标签，文本为"Sign Up"（去除空格） =====
+            logging.info("方法1: 查找<button>标签...")
+            signup_buttons = self.driver.find_elements(
                 By.XPATH,
-                "//tr[contains(., 'Tuesday') and contains(., 'Team Coaching')]"
+                "//button[contains(@class, 'btn-signup') and normalize-space(.)='Sign Up']"
             )
+            logging.info(f"找到 {len(signup_buttons)} 个<button>类型的Sign Up按钮")
 
-            if tuesday_rows:
-                logging.info(f"找到 {len(tuesday_rows)} 个Tuesday Team Coaching行")
+            if not signup_buttons:
+                # ===== 方法2: 更宽松的匹配 =====
+                logging.info("方法2: 使用宽松匹配...")
+                signup_buttons = self.driver.find_elements(
+                    By.XPATH,
+                    "//button[contains(normalize-space(.), 'Sign Up') and not(contains(., 'Create'))]"
+                )
+                logging.info(f"找到 {len(signup_buttons)} 个包含'Sign Up'的按钮")
 
-                for row in tuesday_rows:
+            if not signup_buttons:
+                # ===== 方法3: 查找所有btn-signup类的按钮 =====
+                logging.info("方法3: 通过CSS类查找...")
+                signup_buttons = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "button.btn-signup"
+                )
+                logging.info(f"找到 {len(signup_buttons)} 个btn-signup类的按钮")
+
+            # 如果还是没找到，保存调试信息
+            if not signup_buttons:
+                logging.error("❌ 未找到任何Sign Up按钮")
+
+                # 保存页面源码用于调试
+                with open("debug_page.html", "w", encoding="utf-8") as f:
+                    f.write(self.driver.page_source)
+                logging.info("已保存页面源码: debug_page.html")
+
+                # 查找所有button元素
+                all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                logging.info(f"\n页面上共有 {len(all_buttons)} 个<button>元素:")
+                for idx, btn in enumerate(all_buttons[:10]):  # 只显示前10个
                     try:
-                        # 在该行中查找Sign Up按钮
-                        # 注意：Sign Up按钮是蓝色的，不是"Full"或"Selected"
-                        signup_button = row.find_element(
-                            By.XPATH,
-                            ".//a[text()='Sign Up' and contains(@style, 'background')]"
-                        )
-
-                        # 检查按钮是否可点击（不是Full状态）
-                        if signup_button.is_displayed() and signup_button.is_enabled():
-                            logging.info("✅ 找到可用的Sign Up按钮")
-
-                            # 滚动到按钮位置
-                            self.driver.execute_script(
-                                "arguments[0].scrollIntoView({block: 'center'});",
-                                signup_button
-                            )
-                            time.sleep(1)
-
-                            # 点击按钮
-                            signup_button.click()
-                            logging.info("✅ 已点击Sign Up按钮")
-                            time.sleep(2)
-                            return True
-
-                    except NoSuchElementException:
-                        continue
-
-            # 策略2: 如果找不到Tuesday，查找任何可用的Sign Up按钮（测试阶段）
-            logging.info("未找到Tuesday session，尝试查找任何可用的Sign Up按钮...")
-
-            all_signup_buttons = self.driver.find_elements(
-                By.XPATH,
-                "//table//a[text()='Sign Up' and not(contains(@class, 'disabled'))]"
-            )
-
-            if all_signup_buttons:
-                logging.info(f"找到 {len(all_signup_buttons)} 个可用的Sign Up按钮")
-
-                for button in all_signup_buttons:
-                    try:
-                        if button.is_displayed() and button.is_enabled():
-                            # 获取按钮所在行的信息
-                            row = button.find_element(By.XPATH, "./ancestor::tr")
-                            row_text = row.text
-                            logging.info(f"找到可用按钮，行内容: {row_text[:100]}")
-
-                            # 滚动并点击
-                            self.driver.execute_script(
-                                "arguments[0].scrollIntoView({block: 'center'});",
-                                button
-                            )
-                            time.sleep(1)
-                            button.click()
-                            logging.info("✅ 已点击Sign Up按钮")
-                            time.sleep(2)
-                            return True
-
+                        btn_text = btn.text.strip()
+                        btn_class = btn.get_attribute("class")
+                        logging.info(f"  按钮 {idx + 1}: 文本='{btn_text}' | 类名={btn_class}")
                     except:
+                        pass
+
+                self.driver.save_screenshot("no_available_button.png")
+                logging.error("已保存截图: no_available_button.png")
+                return False
+
+            # ===== 遍历找到的所有按钮 =====
+            logging.info(f"\n开始检查 {len(signup_buttons)} 个按钮...")
+
+            for idx, button in enumerate(signup_buttons):
+                try:
+                    # 获取按钮文本和属性
+                    btn_text = button.text.strip()
+                    btn_class = button.get_attribute("class")
+                    btn_disabled = button.get_attribute("disabled")
+                    btn_ng_disabled = button.get_attribute("data-ng-disabled")
+
+                    logging.info(f"\n检查按钮 {idx + 1}:")
+                    logging.info(f"  文本: '{btn_text}'")
+                    logging.info(f"  类名: {btn_class}")
+                    logging.info(f"  disabled属性: {btn_disabled}")
+                    logging.info(f"  ng-disabled: {btn_ng_disabled}")
+
+                    # 获取按钮所在行的信息
+                    try:
+                        row = button.find_element(By.XPATH, "./ancestor::tr")
+                        row_text = row.text.replace('\n', ' ')[:150]
+                        logging.info(f"  所在行: {row_text}")
+                    except:
+                        logging.info("  所在行: 无法获取")
+
+                    # 检查按钮状态
+                    is_displayed = button.is_displayed()
+                    is_enabled = button.is_enabled()
+
+                    logging.info(f"  可见性: {is_displayed}")
+                    logging.info(f"  可点击: {is_enabled}")
+
+                    # 排除已禁用的按钮
+                    if btn_disabled == "true" or not is_enabled:
+                        logging.info("  ⚠️ 按钮已禁用，跳过")
                         continue
 
-            logging.error("❌ 未找到任何可用的Sign Up按钮")
-            self.driver.save_screenshot("error_no_signup_button.png")
+                    # 检查按钮类名，排除waitlist或其他状态
+                    if "waitlist" in btn_class.lower() or "full" in btn_class.lower():
+                        logging.info("  ⚠️ 按钮状态为waitlist/full，跳过")
+                        continue
+
+                    # 尝试点击按钮
+                    if is_displayed:
+                        logging.info("  🎯 这是可用的Sign Up按钮，尝试点击...")
+
+                        # 滚动到按钮位置
+                        self.driver.execute_script(
+                            "arguments[0].scrollIntoView({block: 'center'});",
+                            button
+                        )
+                        time.sleep(1)
+
+                        # 方法A: 常规点击
+                        try:
+                            button.click()
+                            logging.info(f"✅ 成功点击Sign Up按钮 (按钮 {idx + 1})")
+                            time.sleep(3)
+                            return True
+                        except Exception as click_error:
+                            logging.warning(f"  常规点击失败: {click_error}")
+
+                            # 方法B: JavaScript点击
+                            try:
+                                self.driver.execute_script("arguments[0].click();", button)
+                                logging.info(f"✅ 通过JavaScript成功点击 (按钮 {idx + 1})")
+                                time.sleep(3)
+                                return True
+                            except Exception as js_error:
+                                logging.warning(f"  JavaScript点击也失败: {js_error}")
+
+                                # 方法C: 触发AngularJS的ng-click
+                                try:
+                                    self.driver.execute_script(
+                                        "angular.element(arguments[0]).triggerHandler('click');",
+                                        button
+                                    )
+                                    logging.info(f"✅ 通过AngularJS成功点击 (按钮 {idx + 1})")
+                                    time.sleep(3)
+                                    return True
+                                except Exception as ng_error:
+                                    logging.warning(f"  AngularJS点击也失败: {ng_error}")
+                                    continue
+                    else:
+                        logging.info("  ❌ 按钮不可见")
+
+                except Exception as button_error:
+                    logging.warning(f"处理按钮 {idx + 1} 时出错: {button_error}")
+                    continue
+
+            # 如果所有按钮都不可用
+            logging.error("❌ 所有Sign Up按钮都不可点击")
+            logging.error("可能原因:")
+            logging.error("  1. 所有session都已满员（Full状态）")
+            logging.error("  2. 您已经预约过了（Selected状态）")
+            logging.error("  3. Session还未开放")
+            logging.error("  4. 按钮被AngularJS禁用了")
+
+            self.driver.save_screenshot("no_available_button.png")
+            logging.info("已保存截图: no_available_button.png")
+
             return False
 
         except Exception as e:
             logging.error(f"❌ 查找Sign Up按钮时出错: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
             self.driver.save_screenshot("error_find_button.png")
             return False
 
     def click_save_and_continue(self):
-        """点击页面底部的Save & Continue按钮"""
+        """点击Save & Continue按钮"""
         try:
             logging.info("正在查找Save & Continue按钮...")
 
-            # 等待按钮出现
+            # 等待页面响应
             time.sleep(2)
 
             # 滚动到页面底部
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
 
-            # 查找Save & Continue按钮
+            # 查找Save & Continue按钮（多种可能的定位方式）
             save_button_selectors = [
                 "//button[contains(., 'Save & Continue')]",
                 "//button[contains(., 'Save and Continue')]",
@@ -296,19 +380,21 @@ class EUTTCSignUpBot:
 
             # 验证是否在正确页面
             try:
-                page_title = self.driver.find_element(By.XPATH, "//h1[contains(., 'Sign Me Up')]")
-                logging.info("✅ 已进入Sign Me Up页面")
+                page_title = self.driver.find_element(By.XPATH, "//h1 | //h2")
+                logging.info(f"当前页面标题: {page_title.text}")
             except:
-                logging.warning("⚠️ 可能不在Sign Me Up页面")
+                logging.warning("⚠️ 无法确认页面标题")
 
             # 填写First Name
             try:
                 first_name_input = self.wait.until(
                     EC.presence_of_element_located(
-                        (By.XPATH, "//input[@placeholder='First' or contains(@name, 'first')]")
+                        (By.XPATH,
+                         "//input[@placeholder='First' or contains(@name, 'firstname') or contains(@id, 'first')]")
                     )
                 )
                 first_name_input.clear()
+                time.sleep(0.3)
                 first_name_input.send_keys(first_name)
                 logging.info(f"✅ First Name已填写: {first_name}")
             except Exception as e:
@@ -319,10 +405,12 @@ class EUTTCSignUpBot:
             try:
                 last_name_input = self.wait.until(
                     EC.presence_of_element_located(
-                        (By.XPATH, "//input[@placeholder='Last' or contains(@name, 'last')]")
+                        (By.XPATH,
+                         "//input[@placeholder='Last' or contains(@name, 'lastname') or contains(@id, 'last')]")
                     )
                 )
                 last_name_input.clear()
+                time.sleep(0.3)
                 last_name_input.send_keys(last_name)
                 logging.info(f"✅ Last Name已填写: {last_name}")
             except Exception as e:
@@ -333,10 +421,11 @@ class EUTTCSignUpBot:
             try:
                 email_input = self.wait.until(
                     EC.presence_of_element_located(
-                        (By.XPATH, "//input[@type='email' or contains(@name, 'email')]")
+                        (By.XPATH, "//input[@type='email' or contains(@name, 'email') or contains(@id, 'email')]")
                     )
                 )
                 email_input.clear()
+                time.sleep(0.3)
                 email_input.send_keys(email)
                 logging.info(f"✅ Email已填写: {email}")
             except Exception as e:
@@ -363,13 +452,17 @@ class EUTTCSignUpBot:
             )
 
             if recaptcha_elements:
+                logging.warning("=" * 60)
                 logging.warning("⚠️ 检测到reCAPTCHA验证码！")
                 logging.warning("⚠️ 请在30秒内手动完成验证...")
+                logging.warning("=" * 60)
 
-                # 播放提示音（如果系统支持）
+                # 播放提示音（Windows系统）
                 try:
                     import winsound
-                    winsound.Beep(1000, 500)
+                    for _ in range(3):
+                        winsound.Beep(1000, 200)
+                        time.sleep(0.3)
                 except:
                     pass
 
@@ -400,7 +493,7 @@ class EUTTCSignUpBot:
             submit_button_selectors = [
                 "//button[contains(., 'Sign Up Now')]",
                 "//input[@value='Sign Up Now']",
-                "//button[@type='submit']"
+                "//button[@type='submit' and contains(., 'Sign Up')]"
             ]
 
             for selector in submit_button_selectors:
@@ -446,38 +539,41 @@ class EUTTCSignUpBot:
 
             # 检查成功标志
             success_indicators = [
-                "✓ Selected",  # 选中标记
+                "✓ Selected",
                 "Selected",
-                first_name,
-                last_name,
-                f"{first_name} {last_name}",
+                first_name.lower(),
+                last_name.lower(),
                 "thank",
                 "success",
                 "confirm"
             ]
 
-            page_source = self.driver.page_source
+            page_source = self.driver.page_source.lower()
 
+            found_indicators = []
             for indicator in success_indicators:
-                if indicator.lower() in page_source.lower():
-                    logging.info(f"✅ 找到成功标志: {indicator}")
+                if indicator in page_source:
+                    found_indicators.append(indicator)
 
-                    # 尝试截图保存成功状态
-                    self.driver.save_screenshot(
-                        f"success_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                    )
+            if found_indicators:
+                logging.info(f"✅ 找到成功标志: {', '.join(found_indicators)}")
 
-                    return True
+                # 截图保存成功状态
+                screenshot_name = f"success_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                self.driver.save_screenshot(screenshot_name)
+                logging.info(f"已保存成功截图: {screenshot_name}")
 
-            # 如果没有明确的成功标志，检查是否返回到主页面
-            if "euttc" in current_url:
-                logging.info("✅ 已返回到session列表页面")
-                self.driver.save_screenshot(
-                    f"result_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                )
                 return True
 
-            logging.warning("⚠️ 未找到明确的成功标志，请手动检查")
+            # 如果没有明确的成功标志，但返回到主页面
+            if "euttc" in current_url:
+                logging.info("✅ 已返回到session列表页面")
+                screenshot_name = f"result_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                self.driver.save_screenshot(screenshot_name)
+                logging.info(f"已保存结果截图: {screenshot_name}")
+                return True
+
+            logging.warning("⚠️ 未找到明确的成功标志，但可能已成功")
             self.driver.save_screenshot("verify_result.png")
             return True  # 保守起见，返回True
 
@@ -485,13 +581,13 @@ class EUTTCSignUpBot:
             logging.error(f"验证结果时出错: {e}")
             return False
 
-    def run(self, first_name, last_name, email, target_day="Tuesday"):
+    def run(self, first_name, last_name, email):
         """主执行流程"""
         try:
             logging.info("=" * 60)
             logging.info("开始执行EUTTC自动预约脚本")
             logging.info(f"用户: {first_name} {last_name} ({email})")
-            logging.info(f"目标: {target_day} Team Coaching Session")
+            logging.info("目标: 任何可用的Session")
             logging.info("=" * 60)
 
             # 步骤1: 初始化浏览器
@@ -499,34 +595,35 @@ class EUTTCSignUpBot:
 
             # 步骤2: 打开页面
             if not self.navigate_to_page():
+                logging.error("❌ 第1步失败: 页面加载失败")
                 return False
 
             # 步骤3: 处理隐私弹窗
             self.handle_privacy_popup()
 
-            # 步骤4: 查找并点击Sign Up按钮
-            if not self.find_tuesday_team_coaching_button():
-                logging.error("❌ 无法找到Sign Up按钮，预约失败")
+            # 步骤4: 查找并点击任意可用的Sign Up按钮
+            if not self.find_any_available_signup_button():
+                logging.error("❌ 第2步失败: 无法找到可用的Sign Up按钮")
                 return False
 
             # 步骤5: 点击Save & Continue
             if not self.click_save_and_continue():
-                logging.error("❌ 无法点击Save & Continue，预约失败")
+                logging.error("❌ 第3步失败: 无法点击Save & Continue")
                 return False
 
             # 步骤6: 填写个人信息
             if not self.fill_signup_form(first_name, last_name, email):
-                logging.error("❌ 填写表单失败，预约失败")
+                logging.error("❌ 第4步失败: 填写表单失败")
                 return False
 
             # 步骤7: 提交表单
             if not self.submit_form():
-                logging.error("❌ 提交表单失败，预约失败")
+                logging.error("❌ 第5步失败: 提交表单失败")
                 return False
 
             # 步骤8: 验证结果
             if not self.verify_success(first_name, last_name):
-                logging.warning("⚠️ 无法验证结果，请手动检查")
+                logging.warning("⚠️ 第6步: 无法验证结果，请手动检查")
                 return True
 
             logging.info("=" * 60)
@@ -538,16 +635,16 @@ class EUTTCSignUpBot:
         except Exception as e:
             logging.error(f"❌ 脚本执行失败: {e}")
             if self.driver:
-                self.driver.save_screenshot(
-                    f"error_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                )
+                error_screenshot = f"error_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                self.driver.save_screenshot(error_screenshot)
+                logging.error(f"已保存错误截图: {error_screenshot}")
             return False
 
         finally:
-            # 保持浏览器打开5秒以便查看结果
+            # 保持浏览器打开10秒以便查看结果
             if self.driver:
-                logging.info("5秒后关闭浏览器...")
-                time.sleep(5)
+                logging.info("10秒后关闭浏览器...")
+                time.sleep(10)
                 self.driver.quit()
                 logging.info("浏览器已关闭")
 
@@ -559,7 +656,7 @@ def main():
     FIRST_NAME = "Frank"  # 您的名字
     LAST_NAME = "Sun"  # 您的姓氏
     EMAIL = "frank.sun@ed.ac.uk"  # 您的邮箱
-    HEADLESS = False  # 是否无头模式（False=显示浏览器）
+    HEADLESS = False  # False=显示浏览器，True=后台运行
     # =============================
 
     print("\n" + "=" * 60)
@@ -569,20 +666,32 @@ def main():
     print(f"  姓名: {FIRST_NAME} {LAST_NAME}")
     print(f"  邮箱: {EMAIL}")
     print(f"  模式: {'无头模式' if HEADLESS else '可视化模式'}")
+    print(f"  目标: 任何可用的Session")
     print("=" * 60 + "\n")
 
     # 创建机器人实例
     bot = EUTTCSignUpBot(headless=HEADLESS)
 
     # 执行预约
-    success = bot.run(FIRST_NAME, LAST_NAME, EMAIL, target_day="Tuesday")
+    success = bot.run(FIRST_NAME, LAST_NAME, EMAIL)
 
     # 返回结果
     if success:
-        print("\n✅ 预约完成！请检查邮箱确认。")
+        print("\n" + "=" * 60)
+        print("✅ 预约完成！")
+        print("请检查:")
+        print("  1. 浏览器最终页面")
+        print("  2. 邮箱确认邮件")
+        print("  3. SignUpGenius网站上的预约记录")
+        print("=" * 60)
         sys.exit(0)
     else:
-        print("\n❌ 预约失败！请查看日志文件。")
+        print("\n" + "=" * 60)
+        print("❌ 预约失败！")
+        print("请查看:")
+        print("  1. signup_bot.log 日志文件")
+        print("  2. 生成的截图文件")
+        print("=" * 60)
         sys.exit(1)
 
 
