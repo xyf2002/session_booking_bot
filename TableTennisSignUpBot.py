@@ -253,7 +253,7 @@ class EUTTCSignUpBot:
 
                     # 尝试点击按钮
                     if is_displayed:
-                        logging.info("  🎯 这是可用的Sign Up按钮，尝试点击...")
+                        logging.info("尝试点击可用的Sign Up按钮...")
 
                         # 滚动到按钮位置
                         self.driver.execute_script(
@@ -627,7 +627,7 @@ class EUTTCSignUpBot:
                 return True
 
             logging.info("=" * 60)
-            logging.info("🎉 预约成功完成！")
+            logging.info("预约成功完成！")
             logging.info("=" * 60)
 
             return True
@@ -653,9 +653,9 @@ def main():
     """主函数"""
 
     # ========== 配置区域 ==========
-    FIRST_NAME = "Frank"  # 您的名字
-    LAST_NAME = "Sun"  # 您的姓氏
-    EMAIL = "frank.sun@ed.ac.uk"  # 您的邮箱
+    FIRST_NAME = "zhendong"  # 您的名字
+    LAST_NAME = "Fan"  # 您的姓氏
+    EMAIL = "=sunweibo221504@ed.ac.uk"  # 您的邮箱
     HEADLESS = False  # False=显示浏览器，True=后台运行
     # =============================
 
