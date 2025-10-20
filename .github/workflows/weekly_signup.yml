@@ -1,0 +1,52 @@
+name: Weekly EUTTC Signup
+
+on:
+  schedule:
+    # 每周二 10:00 AM UK时间 (冬令时 = UTC 10:00, 夏令时 = UTC 09:00)
+    # Cron格式: 分 时 日 月 周
+    - cron: '0 10 * * 2'  # 冬令时
+    # - cron: '0 9 * * 2'   # 夏令时（3月最后一个周日到10月最后一个周日）
+
+  # 允许手动触发（测试用）
+  workflow_dispatch:
+
+jobs:
+  signup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout代码
+      uses: actions/checkout@v3
+
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 安装Chrome
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+
+    - name: 安装Python依赖
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 运行预约脚本
+      env:
+        FIRST_NAME: ${{ secrets.FIRST_NAME }}
+        LAST_NAME: ${{ secrets.LAST_NAME }}
+        EMAIL: ${{ secrets.EMAIL }}
+      run: |
+        python signup_bot.py
+
+    - name: 上传日志和截图
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: signup-logs-${{ github.run_number }}
+        path: |
+          *.log
+          *.png
+        retention-days: 30
