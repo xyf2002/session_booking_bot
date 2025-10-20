@@ -5,8 +5,8 @@ on:
     # 每周二 10:00 AM UK时间
     # 冬令时（10月-3月）: UTC 10:00
     # 夏令时（4月-9月）: UTC 09:00
-    - cron: '0 10 * 10-12,1-3 2'  # 冬令时
-    - cron: '0 9 * 4-9 2'         # 夏令时
+    - cron: '0 10 * 10-12,1-3 2'
+    - cron: '0 9 * 4-9 2'
   
   # 允许手动触发（测试用）
   workflow_dispatch:
@@ -25,39 +25,17 @@ jobs:
         python-version: '3.11'
         cache: 'pip'
     
-    - name: 安装系统依赖
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          wget \
-          gnupg \
-          ca-certificates \
-          fonts-liberation \
-          libasound2 \
-          libatk-bridge2.0-0 \
-          libatk1.0-0 \
-          libatspi2.0-0 \
-          libcups2 \
-          libdbus-1-3 \
-          libdrm2 \
-          libgbm1 \
-          libgtk-3-0 \
-          libnspr4 \
-          libnss3 \
-          libwayland-client0 \
-          libxcomposite1 \
-          libxdamage1 \
-          libxfixes3 \
-          libxkbcommon0 \
-          libxrandr2 \
-          xdg-utils
-    
     - name: 安装Google Chrome
       run: |
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+        # 添加Chrome仓库
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        
+        # 更新并安装Chrome
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
+        
+        # 验证安装
         google-chrome --version
     
     - name: 安装Python依赖
@@ -67,10 +45,12 @@ jobs:
     
     - name: 显示环境信息
       run: |
+        echo "======================================"
         echo "Python版本: $(python --version)"
         echo "Chrome版本: $(google-chrome --version)"
-        echo "当前时间: $(date)"
+        echo "系统时间: $(date)"
         echo "UK时间: $(TZ='Europe/London' date)"
+        echo "======================================"
     
     - name: 运行预约脚本
       env:
@@ -78,9 +58,11 @@ jobs:
         LAST_NAME: ${{ secrets.LAST_NAME }}
         EMAIL: ${{ secrets.EMAIL }}
       run: |
-        echo "开始执行预约脚本..."
+        echo "🏓 开始执行EUTTC预约脚本..."
         python signup_bot.py
-        echo "脚本执行完成"
+        EXIT_CODE=$?
+        echo "脚本执行完成，退出码: $EXIT_CODE"
+        exit $EXIT_CODE
     
     - name: 上传日志和截图
       if: always()
@@ -100,8 +82,11 @@ jobs:
         echo "执行状态: ${{ job.status }}"
         echo "=========================================="
         if [ -f signup_bot.log ]; then
-          echo "最后20行日志:"
-          tail -n 20 signup_bot.log
+          echo ""
+          echo "📋 日志内容（最后30行）:"
+          echo "=========================================="
+          tail -n 30 signup_bot.log
         else
-          echo "未找到日志文件"
+          echo "⚠️ 未找到日志文件"
         fi
+        echo "=========================================="
