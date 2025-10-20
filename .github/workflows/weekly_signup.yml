@@ -2,13 +2,8 @@ name: Weekly EUTTC Signup
 
 on:
   schedule:
-    # 每周二 10:00 AM UK时间
-    # 冬令时（10月-3月）: UTC 10:00
-    # 夏令时（4月-9月）: UTC 09:00
     - cron: '0 10 * 10-12,1-3 2'
     - cron: '0 9 * 4-9 2'
-  
-  # 允许手动触发（测试用）
   workflow_dispatch:
 
 jobs:
@@ -27,16 +22,37 @@ jobs:
     
     - name: 安装Google Chrome
       run: |
-        # 添加Chrome仓库
         wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
         echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        
-        # 更新并安装Chrome
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
         
-        # 验证安装
-        google-chrome --version
+        CHROME_VERSION=$(google-chrome --version)
+        echo "✅ 安装的Chrome版本: $CHROME_VERSION"
+    
+    - name: 安装匹配的ChromeDriver
+      run: |
+        # 获取Chrome主版本号
+        CHROME_FULL_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+        CHROME_MAJOR_VERSION=$(echo $CHROME_FULL_VERSION | cut -d. -f1)
+        echo "Chrome完整版本: $CHROME_FULL_VERSION"
+        echo "Chrome主版本: $CHROME_MAJOR_VERSION"
+        
+        # 获取对应的ChromeDriver版本
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$CHROME_MAJOR_VERSION")
+        echo "匹配的ChromeDriver版本: $CHROMEDRIVER_VERSION"
+        
+        # 下载ChromeDriver
+        wget -q "https://storage.googleapis.com/chrome-for-testing-public/$CHROMEDRIVER_VERSION/linux64/chromedriver-linux64.zip"
+        unzip -q chromedriver-linux64.zip
+        
+        # 替换系统ChromeDriver
+        sudo mv chromedriver-linux64/chromedriver /usr/bin/chromedriver
+        sudo chmod +x /usr/bin/chromedriver
+        
+        # 验证
+        DRIVER_VERSION=$(chromedriver --version)
+        echo "✅ ChromeDriver版本: $DRIVER_VERSION"
     
     - name: 安装Python依赖
       run: |
@@ -46,10 +62,11 @@ jobs:
     - name: 显示环境信息
       run: |
         echo "======================================"
-        echo "Python版本: $(python --version)"
-        echo "Chrome版本: $(google-chrome --version)"
-        echo "系统时间: $(date)"
-        echo "UK时间: $(TZ='Europe/London' date)"
+        echo "🐍 Python: $(python --version)"
+        echo "🌐 Chrome: $(google-chrome --version)"
+        echo "🚗 ChromeDriver: $(chromedriver --version)"
+        echo "🕐 系统时间: $(date)"
+        echo "🇬🇧 UK时间: $(TZ='Europe/London' date)"
         echo "======================================"
     
     - name: 运行预约脚本
@@ -59,7 +76,7 @@ jobs:
         EMAIL: ${{ secrets.EMAIL }}
       run: |
         echo "🏓 开始执行EUTTC预约脚本..."
-        python TableTennisSignUpBot.py
+        python signup_bot.py
         EXIT_CODE=$?
         echo "脚本执行完成，退出码: $EXIT_CODE"
         exit $EXIT_CODE
@@ -79,7 +96,7 @@ jobs:
       if: always()
       run: |
         echo "=========================================="
-        echo "执行状态: ${{ job.status }}"
+        echo "📊 执行状态: ${{ job.status }}"
         echo "=========================================="
         if [ -f signup_bot.log ]; then
           echo ""
