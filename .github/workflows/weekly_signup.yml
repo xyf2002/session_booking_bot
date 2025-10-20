@@ -76,7 +76,7 @@ jobs:
         EMAIL: ${{ secrets.EMAIL }}
       run: |
         echo "🏓 开始执行EUTTC预约脚本..."
-        python signup_bot.py
+        python TableTennisSignUpBot.py
         EXIT_CODE=$?
         echo "脚本执行完成，退出码: $EXIT_CODE"
         exit $EXIT_CODE
