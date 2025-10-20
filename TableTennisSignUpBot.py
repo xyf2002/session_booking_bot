@@ -34,11 +34,11 @@ class EUTTCSignUpBot:
         self.base_url = "https://www.signupgenius.com/go/10c0d4faba62ca2f9c25-euttc#/"
 
     def setup_driver(self):
-        """配置Chrome浏览器驱动（优化GitHub Actions）"""
+        """配置Chrome浏览器驱动（GitHub Actions优化版 - 无webdriver-manager）"""
         logging.info("正在初始化Chrome浏览器...")
 
         chrome_options = Options()
-        chrome_options.add_argument('--headless')  # 必须无头
+        chrome_options.add_argument('--headless=new')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-gpu')
@@ -46,28 +46,49 @@ class EUTTCSignUpBot:
         chrome_options.add_argument('--disable-extensions')
         chrome_options.add_argument('--disable-setuid-sandbox')
         chrome_options.add_argument('--window-size=1920,1080')
+        chrome_options.add_argument('--remote-debugging-port=9222')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument(
-            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
 
+        prefs = {
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_settings.popups": 0,
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
+
+        # 使用workflow中安装的ChromeDriver
         try:
-            service = Service(ChromeDriverManager().install())
+            logging.info("使用系统ChromeDriver: /usr/bin/chromedriver")
+            service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            logging.info("✅ ChromeDriver初始化成功")
         except Exception as e:
-            logging.error(f"无法初始化ChromeDriver: {e}")
-            # GitHub Actions备用方案
-            chrome_options.binary_location = "/usr/bin/google-chrome"
-            self.driver = webdriver.Chrome(options=chrome_options)
+            logging.error(f"❌ ChromeDriver初始化失败: {e}")
+            # 尝试不指定service
+            try:
+                logging.info("尝试自动查找ChromeDriver...")
+                self.driver = webdriver.Chrome(options=chrome_options)
+                logging.info("✅ 自动查找ChromeDriver成功")
+            except Exception as e2:
+                logging.error(f"❌ 所有方法都失败: {e2}")
+                raise
 
-        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined})'
-        })
+        try:
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                '''
+            })
+        except:
+            pass
 
-        self.wait = WebDriverWait(self.driver, 30)  # 增加到30秒
+        self.wait = WebDriverWait(self.driver, 30)
         logging.info("✅ 浏览器初始化完成")
 
     def navigate_to_page(self):
