@@ -406,9 +406,9 @@ class EUTTCSignUpBot:
 
 def main():
     # 从环境变量读取配置（GitHub Actions会设置这些）
-    FIRST_NAME = os.getenv('FIRST_NAME', 'Frank')
-    LAST_NAME = os.getenv('LAST_NAME', 'Sun')
-    EMAIL = os.getenv('EMAIL', 'frank.sun@ed.ac.uk')
+    FIRST_NAME = os.getenv('FIRST_NAME', 'Yufeng')
+    LAST_NAME = os.getenv('LAST_NAME', 'Xia')
+    EMAIL = os.getenv('EMAIL', 's2223191@ed.ac.uk')
 
     logging.info(f"配置: {FIRST_NAME} {LAST_NAME} - {EMAIL}")
 
